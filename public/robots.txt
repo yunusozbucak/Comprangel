@@ -1,0 +1,11 @@
+# Comprangel Robots.txt
+# https://comprangel.vercel.app/
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://comprangel.vercel.app/sitemap.xml
+
+# Crawl-delay for politeness
+Crawl-delay: 1
