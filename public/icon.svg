@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="96" fill="#0C0C0C"/>
+  <rect x="32" y="32" width="448" height="448" rx="64" fill="#1a1a1a"/>
+  
+  <!-- Image icon -->
+  <rect x="96" y="128" width="200" height="160" rx="16" fill="#252525" stroke="#CE6533" stroke-width="8"/>
+  <circle cx="144" cy="176" r="20" fill="#CE6533"/>
+  <path d="M112 272 L160 224 L200 264 L240 216 L280 272" stroke="#CE6533" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Arrow -->
+  <path d="M320 208 L380 208" stroke="#FFFFFC" stroke-width="12" stroke-linecap="round"/>
+  <path d="M360 188 L380 208 L360 228" stroke="#FFFFFC" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Output format badge -->
+  <rect x="216" y="304" width="200" height="80" rx="16" fill="#075056"/>
+  <text x="316" y="356" font-family="system-ui, sans-serif" font-size="36" font-weight="bold" fill="#FFFFFC" text-anchor="middle">WebP</text>
+</svg>
