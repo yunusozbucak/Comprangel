@@ -1,6 +1,7 @@
+import React from 'react';
 import { useImageContext, presets } from '../context/ImageContext';
 
-const OUTPUT_FORMATS = [
+const ALL_OUTPUT_FORMATS = [
     { value: 'webp', label: 'WebP' },
     { value: 'avif', label: 'AVIF' },
     { value: 'jpeg', label: 'JPEG' },
@@ -16,7 +17,33 @@ const PRESETS = [
 
 export function CompressionSettings() {
     const { state, actions } = useImageContext();
-    const { settings } = state;
+    const { settings, inputFormats } = state;
+
+    // Filter output formats to exclude input formats
+    const getAvailableOutputFormats = () => {
+        if (inputFormats.length === 0) {
+            return ALL_OUTPUT_FORMATS;
+        }
+        
+        return ALL_OUTPUT_FORMATS.filter(format => {
+            // Normalize format comparison (handle both 'jpeg' and 'jpg')
+            const normalizedFormat = format.value.toLowerCase();
+            const normalizedInputFormats = inputFormats.map(f => 
+                f.toLowerCase() === 'jpg' ? 'jpeg' : f.toLowerCase()
+            );
+            
+            return !normalizedInputFormats.includes(normalizedFormat);
+        });
+    };
+
+    const OUTPUT_FORMATS = getAvailableOutputFormats();
+
+    // Check if current output format is still available, if not, switch to first available
+    React.useEffect(() => {
+        if (OUTPUT_FORMATS.length > 0 && !OUTPUT_FORMATS.some(f => f.value === settings.outputFormat)) {
+            actions.setOutputFormat(OUTPUT_FORMATS[0].value);
+        }
+    }, [OUTPUT_FORMATS, settings.outputFormat, actions]);
 
     return (
         <div className="bg-surface block-border p-5 space-y-5">

@@ -51,6 +51,10 @@ export function DropZone() {
             };
         }));
 
+        // Extract and update input formats
+        const inputFormats = [...new Set(newFiles.map(file => file.originalFormat))];
+        actions.updateInputFormats(inputFormats);
+        
         actions.addFiles(newFiles);
     }, [actions]);
 

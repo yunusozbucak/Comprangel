@@ -57,96 +57,213 @@ export function useImageProcessor() {
                     const finalWidth = (rotate === 90 || rotate === 270) ? height : width;
                     const finalHeight = (rotate === 90 || rotate === 270) ? width : height;
 
-                    const canvas = document.createElement('canvas');
-                    canvas.width = finalWidth;
-                    canvas.height = finalHeight;
-                    const ctx = canvas.getContext('2d');
+                    const createCanvas = (w, h) => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
 
-                    // Apply transforms
-                    ctx.save();
-                    ctx.translate(finalWidth / 2, finalHeight / 2);
+                        // Apply transforms
+                        ctx.save();
+                        ctx.translate(w / 2, h / 2);
 
-                    if (rotate) {
-                        ctx.rotate((rotate * Math.PI) / 180);
-                    }
-
-                    if (flip?.horizontal || flip?.vertical) {
-                        ctx.scale(flip.horizontal ? -1 : 1, flip.vertical ? -1 : 1);
-                    }
-
-                    // Draw image centered
-                    ctx.drawImage(img, -width / 2, -height / 2, width, height);
-                    ctx.restore();
-
-                    // Apply filters
-                    if (filters?.grayscale || filters?.brightness || filters?.contrast) {
-                        const imageData = ctx.getImageData(0, 0, finalWidth, finalHeight);
-                        const data = imageData.data;
-
-                        for (let i = 0; i < data.length; i += 4) {
-                            let r = data[i];
-                            let g = data[i + 1];
-                            let b = data[i + 2];
-
-                            if (filters.grayscale) {
-                                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                                r = g = b = gray;
-                            }
-
-                            if (filters.brightness) {
-                                const brightness = (filters.brightness / 100) * 255;
-                                r += brightness;
-                                g += brightness;
-                                b += brightness;
-                            }
-
-                            if (filters.contrast) {
-                                const factor = (259 * (filters.contrast + 255)) / (255 * (259 - filters.contrast));
-                                r = factor * (r - 128) + 128;
-                                g = factor * (g - 128) + 128;
-                                b = factor * (b - 128) + 128;
-                            }
-
-                            data[i] = Math.max(0, Math.min(255, r));
-                            data[i + 1] = Math.max(0, Math.min(255, g));
-                            data[i + 2] = Math.max(0, Math.min(255, b));
+                        if (rotate) {
+                            ctx.rotate((rotate * Math.PI) / 180);
                         }
 
-                        ctx.putImageData(imageData, 0, 0);
-                    }
+                        if (flip?.horizontal || flip?.vertical) {
+                            ctx.scale(flip.horizontal ? -1 : 1, flip.vertical ? -1 : 1);
+                        }
 
-                    // Determine output format
-                    let mimeType = 'image/webp';
-                    let qualityValue = quality / 100;
+                        // Draw image centered
+                        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                        ctx.restore();
 
-                    switch (outputFormat) {
-                        case 'webp': mimeType = 'image/webp'; break;
-                        case 'avif': mimeType = 'image/avif'; break;
-                        case 'jpeg': mimeType = 'image/jpeg'; break;
-                        case 'png': mimeType = 'image/png'; qualityValue = undefined; break;
-                    }
+                        // Apply filters
+                        if (filters?.grayscale || filters?.brightness || filters?.contrast) {
+                            const imageData = ctx.getImageData(0, 0, w, h);
+                            const data = imageData.data;
 
-                    if (lossless && outputFormat === 'webp') {
-                        qualityValue = 1;
-                    }
+                            for (let i = 0; i < data.length; i += 4) {
+                                let r = data[i];
+                                let g = data[i + 1];
+                                let b = data[i + 2];
 
-                    canvas.toBlob(
-                        (blob) => {
-                            if (blob) {
-                                resolve({
-                                    convertedBlob: blob,
-                                    convertedSize: blob.size,
-                                    width: finalWidth,
-                                    height: finalHeight,
-                                    format: outputFormat
-                                });
-                            } else {
-                                reject(new Error('Failed to create blob'));
+                                if (filters.grayscale) {
+                                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                                    r = g = b = gray;
+                                }
+
+                                if (filters.brightness) {
+                                    const brightness = (filters.brightness / 100) * 255;
+                                    r += brightness;
+                                    g += brightness;
+                                    b += brightness;
+                                }
+
+                                if (filters.contrast) {
+                                    const factor = (259 * (filters.contrast + 255)) / (255 * (259 - filters.contrast));
+                                    r = factor * (r - 128) + 128;
+                                    g = factor * (g - 128) + 128;
+                                    b = factor * (b - 128) + 128;
+                                }
+
+                                data[i] = Math.max(0, Math.min(255, r));
+                                data[i + 1] = Math.max(0, Math.min(255, g));
+                                data[i + 2] = Math.max(0, Math.min(255, b));
                             }
-                        },
-                        mimeType,
-                        qualityValue
-                    );
+
+                            ctx.putImageData(imageData, 0, 0);
+                        }
+
+                        return canvas;
+                    };
+
+                    // Size validation and fallback system
+                    const attemptConversion = async (format, qualityValue, canvasWidth, canvasHeight) => {
+                        let mimeType, finalQuality = qualityValue;
+
+                        switch (format) {
+                            case 'webp': 
+                                mimeType = 'image/webp';
+                                if (!lossless) {
+                                    finalQuality = Math.min(0.85, Math.max(0.5, qualityValue));
+                                } else {
+                                    finalQuality = 1;
+                                }
+                                break;
+                            case 'avif': 
+                                mimeType = 'image/avif';
+                                finalQuality = Math.min(0.4, Math.max(0.15, qualityValue));
+                                break;
+                            case 'jpeg': 
+                                mimeType = 'image/jpeg';
+                                finalQuality = Math.min(0.92, Math.max(0.6, qualityValue));
+                                break;
+                            case 'png': 
+                                mimeType = 'image/png'; 
+                                finalQuality = undefined;
+                                break;
+                        }
+
+                        const canvas = createCanvas(canvasWidth, canvasHeight);
+                        
+                        return new Promise((resolveConvert) => {
+                            canvas.toBlob(
+                                (blob) => {
+                                    if (blob) {
+                                        resolveConvert({
+                                            convertedBlob: blob,
+                                            convertedSize: blob.size,
+                                            width: canvasWidth,
+                                            height: canvasHeight,
+                                            format: format,
+                                            qualityUsed: finalQuality
+                                        });
+                                    } else {
+                                        resolveConvert(null);
+                                    }
+                                },
+                                mimeType,
+                                finalQuality
+                            );
+                        });
+                    };
+
+                    // Aggressive dimension optimization for AVIF
+                    let optimizedWidth = finalWidth;
+                    let optimizedHeight = finalHeight;
+                    
+                    if (outputFormat === 'avif') {
+                        const maxDimension = Math.max(finalWidth, finalHeight);
+                        if (maxDimension > 1024) {
+                            // More aggressive scaling for AVIF
+                            const scale = Math.max(0.4, 1024 / maxDimension);
+                            optimizedWidth = Math.round(finalWidth * scale);
+                            optimizedHeight = Math.round(finalHeight * scale);
+                        }
+                    }
+
+                    // Conversion attempt chain with fallbacks
+                    const originalSize = file.originalSize || file.size;
+                    let result = null;
+                    let attempts = [];
+
+                    // Primary format attempt
+                    result = await attemptConversion(outputFormat, quality / 100, optimizedWidth, optimizedHeight);
+                    attempts.push({ format: outputFormat, quality: quality / 100, result });
+
+                    if (result && result.convertedSize < originalSize) {
+                        resolve(result);
+                        return;
+                    }
+
+                    // Fallback 1: Same format with lower quality
+                    if (outputFormat !== 'png') {
+                        const lowerQuality = Math.max(0.1, (quality / 100) * 0.5);
+                        result = await attemptConversion(outputFormat, lowerQuality, optimizedWidth, optimizedHeight);
+                        attempts.push({ format: outputFormat, quality: lowerQuality, result });
+
+                        if (result && result.convertedSize < originalSize) {
+                            resolve(result);
+                            return;
+                        }
+                    }
+
+                    // Fallback 2: Try WebP (usually best compression)
+                    if (outputFormat !== 'webp') {
+                        const webpQuality = Math.min(0.6, quality / 100);
+                        result = await attemptConversion('webp', webpQuality, optimizedWidth, optimizedHeight);
+                        attempts.push({ format: 'webp', quality: webpQuality, result });
+
+                        if (result && result.convertedSize < originalSize) {
+                            resolve(result);
+                            return;
+                        }
+                    }
+
+                    // Fallback 3: WebP with very low quality
+                    result = await attemptConversion('webp', 0.3, optimizedWidth, optimizedHeight);
+                    attempts.push({ format: 'webp', quality: 0.3, result });
+
+                    if (result && result.convertedSize < originalSize) {
+                        resolve(result);
+                        return;
+                    }
+
+                    // Fallback 4: JPEG with maximum compression
+                    result = await attemptConversion('jpeg', 0.4, optimizedWidth, optimizedHeight);
+                    attempts.push({ format: 'jpeg', quality: 0.4, result });
+
+                    if (result && result.convertedSize < originalSize) {
+                        resolve(result);
+                        return;
+                    }
+
+                    // Fallback 5: Reduce dimensions significantly and try again
+                    const emergencyScale = 0.5;
+                    const emergencyWidth = Math.round(optimizedWidth * emergencyScale);
+                    const emergencyHeight = Math.round(optimizedHeight * emergencyScale);
+                    
+                    result = await attemptConversion('webp', 0.4, emergencyWidth, emergencyHeight);
+                    attempts.push({ format: 'webp', quality: 0.4, dimensions: `${emergencyWidth}x${emergencyHeight}`, result });
+
+                    if (result && result.convertedSize < originalSize) {
+                        resolve(result);
+                        return;
+                    }
+
+                    // If all attempts failed, return the smallest result we got
+                    const validResults = attempts.filter(a => a.result).map(a => a.result);
+                    if (validResults.length > 0) {
+                        const smallestResult = validResults.reduce((min, curr) => 
+                            curr.convertedSize < min.convertedSize ? curr : min
+                        );
+                        resolve(smallestResult);
+                    } else {
+                        reject(new Error('Failed to create compressed image'));
+                    }
+
                 } catch (error) {
                     reject(error);
                 }

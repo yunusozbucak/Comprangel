@@ -3,6 +3,7 @@ import { createContext, useContext, useReducer, useCallback } from 'react';
 // Initial state
 const initialState = {
     files: [],
+    inputFormats: [], // Track formats of uploaded files
     settings: {
         outputFormat: 'webp',
         quality: 80,
@@ -61,7 +62,8 @@ const ActionTypes = {
     ADD_TO_HISTORY: 'ADD_TO_HISTORY',
     CLEAR_HISTORY: 'CLEAR_HISTORY',
     SET_PROCESSING: 'SET_PROCESSING',
-    UPDATE_PROGRESS: 'UPDATE_PROGRESS'
+    UPDATE_PROGRESS: 'UPDATE_PROGRESS',
+    UPDATE_INPUT_FORMATS: 'UPDATE_INPUT_FORMATS'
 };
 
 // Presets configuration
@@ -70,6 +72,34 @@ const presets = {
     high: { quality: 95, lossless: false },
     smallest: { quality: 50, lossless: false },
     lossless: { quality: 100, lossless: true }
+};
+
+// Format-specific preset adjustments
+const formatSpecificPresets = {
+    webp: {
+        web: { quality: 75, lossless: false },
+        high: { quality: 85, lossless: false },
+        smallest: { quality: 60, lossless: false },
+        lossless: { quality: 100, lossless: true }
+    },
+    avif: {
+        web: { quality: 35, lossless: false },
+        high: { quality: 50, lossless: false },
+        smallest: { quality: 20, lossless: false },
+        lossless: { quality: 100, lossless: true }
+    },
+    jpeg: {
+        web: { quality: 75, lossless: false },
+        high: { quality: 92, lossless: false },
+        smallest: { quality: 60, lossless: false },
+        lossless: { quality: 100, lossless: false } // JPEG doesn't support true lossless
+    },
+    png: {
+        web: { quality: 80, lossless: false }, // Quality affects compression level
+        high: { quality: 95, lossless: false },
+        smallest: { quality: 50, lossless: false },
+        lossless: { quality: 100, lossless: true }
+    }
 };
 
 // Reducer
@@ -92,25 +122,28 @@ function imageReducer(state, action) {
             };
 
         case ActionTypes.REMOVE_FILE:
+            const remainingFiles = state.files.filter(file => file.id !== action.payload);
             return {
                 ...state,
-                files: state.files.filter(file => file.id !== action.payload)
+                files: remainingFiles,
+                inputFormats: remainingFiles.length === 0 ? [] : state.inputFormats
             };
 
         case ActionTypes.CLEAR_FILES:
             return {
                 ...state,
-                files: []
+                files: [],
+                inputFormats: []
             };
 
         case ActionTypes.REORDER_FILES:
             const { sourceIndex, destinationIndex } = action.payload;
-            const newFiles = [...state.files];
-            const [removed] = newFiles.splice(sourceIndex, 1);
-            newFiles.splice(destinationIndex, 0, removed);
+            const reorderedFiles = [...state.files];
+            const [removed] = reorderedFiles.splice(sourceIndex, 1);
+            reorderedFiles.splice(destinationIndex, 0, removed);
             return {
                 ...state,
-                files: newFiles
+                files: reorderedFiles
             };
 
         case ActionTypes.SET_SETTINGS:
@@ -136,7 +169,9 @@ function imageReducer(state, action) {
             };
 
         case ActionTypes.SET_PRESET:
-            const presetConfig = presets[action.payload];
+            const currentFormat = state.settings.outputFormat;
+            const formatPresets = formatSpecificPresets[currentFormat] || presets;
+            const presetConfig = formatPresets[action.payload] || presets[action.payload];
             return {
                 ...state,
                 settings: {
@@ -174,6 +209,12 @@ function imageReducer(state, action) {
             return {
                 ...state,
                 processing: { ...state.processing, progress: action.payload }
+            };
+
+        case ActionTypes.UPDATE_INPUT_FORMATS:
+            return {
+                ...state,
+                inputFormats: action.payload
             };
 
         default:
@@ -245,6 +286,10 @@ export function ImageProvider({ children }) {
         dispatch({ type: ActionTypes.UPDATE_PROGRESS, payload: progress });
     }, []);
 
+    const updateInputFormats = useCallback((formats) => {
+        dispatch({ type: ActionTypes.UPDATE_INPUT_FORMATS, payload: formats });
+    }, []);
+
     const value = {
         state,
         dispatch,
@@ -262,7 +307,8 @@ export function ImageProvider({ children }) {
             addToHistory,
             clearHistory,
             setProcessing,
-            updateProgress
+            updateProgress,
+            updateInputFormats
         }
     };
 
@@ -282,4 +328,4 @@ export function useImageContext() {
     return context;
 }
 
-export { ActionTypes, presets };
+export { ActionTypes, presets, formatSpecificPresets };
